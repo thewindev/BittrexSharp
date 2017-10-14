@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace BittrexSharp.Domain
+﻿namespace BittrexSharp.Domain
 {
     public class AcceptedOrder
     {

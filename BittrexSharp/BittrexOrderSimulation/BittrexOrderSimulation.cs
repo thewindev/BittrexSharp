@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using BittrexSharp.Domain;
 using System.Linq;
@@ -12,30 +11,30 @@ namespace BittrexSharp.BittrexOrderSimulation
     /// </summary>
     public class BittrexOrderSimulation : Bittrex
     {
-        private List<OpenOrder> simulatedOpenOrders = new List<OpenOrder>();
-        private List<Order> simulatedFinishedOrders = new List<Order>();
-        private List<CurrencyBalance> simulatedBalances = new List<CurrencyBalance>();
+        private readonly List<OpenOrder> _simulatedOpenOrders = new List<OpenOrder>();
+        private readonly List<Order> _simulatedFinishedOrders = new List<Order>();
+        private readonly List<CurrencyBalance> _simulatedBalances = new List<CurrencyBalance>();
 
         public BittrexOrderSimulation(string apiKey, string apiSecret) : base(apiKey, apiSecret)
         {
         }
 
-        private void addBalance(string currency, decimal quantity)
+        private void AddBalance(string currency, decimal quantity)
         {
-            var existingBalance = simulatedBalances.SingleOrDefault(b => b.Currency == currency);
+            var existingBalance = _simulatedBalances.SingleOrDefault(b => b.Currency == currency);
             if (existingBalance != null)
                 existingBalance.Balance += quantity;
             else
-                simulatedBalances.Add(new CurrencyBalance
+                _simulatedBalances.Add(new CurrencyBalance
                 {
                     Balance = quantity,
                     Currency = currency
                 });
         }
 
-        private void removeBalance(string currency, decimal quantity)
+        private void RemoveBalance(string currency, decimal quantity)
         {
-            var existingBalance = simulatedBalances.Single(b => b.Currency == currency);
+            var existingBalance = _simulatedBalances.Single(b => b.Currency == currency);
             existingBalance.Balance -= quantity;
         }
 
@@ -58,10 +57,10 @@ namespace BittrexSharp.BittrexOrderSimulation
                     PricePerUnit = rate,
                     Quantity = quantity
                 };
-                simulatedFinishedOrders.Add(order);
+                _simulatedFinishedOrders.Add(order);
 
                 var currency = Helper.GetTargetCurrencyFromMarketName(marketName);
-                addBalance(currency, quantity);
+                AddBalance(currency, quantity);
             }
             else
             {
@@ -76,7 +75,7 @@ namespace BittrexSharp.BittrexOrderSimulation
                     PricePerUnit = rate,
                     Quantity = quantity
                 };
-                simulatedOpenOrders.Add(order);
+                _simulatedOpenOrders.Add(order);
             }
 
             return new AcceptedOrder
@@ -104,10 +103,10 @@ namespace BittrexSharp.BittrexOrderSimulation
                     PricePerUnit = rate,
                     Quantity = -quantity
                 };
-                simulatedFinishedOrders.Add(order);
+                _simulatedFinishedOrders.Add(order);
 
                 var currency = Helper.GetTargetCurrencyFromMarketName(marketName);
-                removeBalance(currency, quantity);
+                RemoveBalance(currency, quantity);
             }
             else
             {
@@ -122,7 +121,7 @@ namespace BittrexSharp.BittrexOrderSimulation
                     PricePerUnit = rate,
                     Quantity = -quantity
                 };
-                simulatedOpenOrders.Add(order);
+                _simulatedOpenOrders.Add(order);
             }
 
             return new AcceptedOrder
@@ -133,24 +132,24 @@ namespace BittrexSharp.BittrexOrderSimulation
 
         public override async Task CancelOrder(string orderId)
         {
-            var order = simulatedOpenOrders.Single(o => o.OrderUuid == orderId);
-            simulatedOpenOrders.Remove(order);
+            var order = _simulatedOpenOrders.Single(o => o.OrderUuid == orderId);
+            _simulatedOpenOrders.Remove(order);
         }
 
         public override async Task<IEnumerable<OpenOrder>> GetOpenOrders(string marketName = null)
         {
-            if (marketName == null) return simulatedOpenOrders;
-            else return simulatedOpenOrders.Where(o => o.Exchange == marketName).ToList();
+            if (marketName == null) return _simulatedOpenOrders;
+            return _simulatedOpenOrders.Where(o => o.Exchange == marketName).ToList();
         }
 
         public override async Task<IEnumerable<CurrencyBalance>> GetBalances()
         {
-            return simulatedBalances;
+            return _simulatedBalances;
         }
 
         public override async Task<CurrencyBalance> GetBalance(string currency)
         {
-            return simulatedBalances.SingleOrDefault(b => b.Currency == currency) ?? new CurrencyBalance
+            return _simulatedBalances.SingleOrDefault(b => b.Currency == currency) ?? new CurrencyBalance
             {
                 Balance = 0,
                 Currency = currency
@@ -159,8 +158,8 @@ namespace BittrexSharp.BittrexOrderSimulation
 
         public override async Task<Order> GetOrder(string orderId)
         {
-            var openOrder = simulatedOpenOrders.SingleOrDefault(o => o.OrderUuid == orderId);
-            if (openOrder == null) return simulatedFinishedOrders.SingleOrDefault(o => o.OrderUuid == orderId);
+            var openOrder = _simulatedOpenOrders.SingleOrDefault(o => o.OrderUuid == orderId);
+            if (openOrder == null) return _simulatedFinishedOrders.SingleOrDefault(o => o.OrderUuid == orderId);
 
             return new Order
             {
@@ -177,7 +176,7 @@ namespace BittrexSharp.BittrexOrderSimulation
 
         public override async Task<IEnumerable<HistoricOrder>> GetOrderHistory(string marketName = null)
         {
-            return simulatedFinishedOrders.Where(o => o.Exchange == marketName).Select(o => new HistoricOrder
+            return _simulatedFinishedOrders.Where(o => o.Exchange == marketName).Select(o => new HistoricOrder
             {
                 Exchange = o.Exchange,
                 Limit = o.Limit,

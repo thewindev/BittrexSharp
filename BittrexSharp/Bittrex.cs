@@ -18,31 +18,31 @@ namespace BittrexSharp
         public const string BaseUrl = "https://bittrex.com/api/" + Version + "/";
         public const string SignHeaderName = "apisign";
 
-        private readonly Encoding encoding = Encoding.UTF8;
+        private readonly Encoding _encoding = Encoding.UTF8;
 
-        private HttpClient httpClient;
-        private string apiKey;
-        private string apiSecret;
-        private byte[] apiSecretBytes;
+        private HttpClient _httpClient;
+        private string _apiKey;
+        private string _apiSecret;
+        private byte[] _apiSecretBytes;
 
         public Bittrex()
         {
-            this.apiKey = null;
-            this.apiSecret = null;
-            this.apiSecretBytes = null;
-            this.httpClient = new HttpClient();
+            this._apiKey = null;
+            this._apiSecret = null;
+            this._apiSecretBytes = null;
+            this._httpClient = new HttpClient();
         }
 
         public Bittrex(string apiKey, string apiSecret)
         {
-            this.apiKey = apiKey;
-            this.apiSecret = apiSecret;
-            this.apiSecretBytes = encoding.GetBytes(apiSecret);
-            this.httpClient = new HttpClient();
+            this._apiKey = apiKey;
+            this._apiSecret = apiSecret;
+            this._apiSecretBytes = _encoding.GetBytes(apiSecret);
+            this._httpClient = new HttpClient();
         }
 
         #region Helper
-        private string byteToString(byte[] buff)
+        private string ByteToString(byte[] buff)
         {
             string sbinary = "";
             for (int i = 0; i < buff.Length; i++)
@@ -50,62 +50,62 @@ namespace BittrexSharp
             return sbinary;
         }
 
-        private string convertParameterListToString(IDictionary<string, string> parameters)
+        private string ConvertParameterListToString(IDictionary<string, string> parameters)
         {
             if (parameters.Count == 0) return "";
             return parameters.Select(param => WebUtility.UrlEncode(param.Key) + "=" + WebUtility.UrlEncode(param.Value)).Aggregate((l, r) => l + "&" + r);
         }
 
-        private (string uri, string hash) createRequestAuthentication(string uri) => createRequestAuthentication(uri, new Dictionary<string, string>());
-        private (string uri, string hash) createRequestAuthentication(string uri, IDictionary<string, string> parameters)
+        private (string uri, string hash) CreateRequestAuthentication(string uri) => CreateRequestAuthentication(uri, new Dictionary<string, string>());
+        private (string uri, string hash) CreateRequestAuthentication(string uri, IDictionary<string, string> parameters)
         {
             parameters = new Dictionary<string, string>(parameters);
 
             var nonce = DateTime.Now.Ticks;
-            parameters.Add("apikey", apiKey);
+            parameters.Add("apikey", _apiKey);
             parameters.Add("nonce", nonce.ToString());
 
-            var parameterString = convertParameterListToString(parameters);
+            var parameterString = ConvertParameterListToString(parameters);
             var completeUri = uri + "?" + parameterString;
 
-            var uriBytes = encoding.GetBytes(completeUri);
-            using (var hmac = new HMACSHA512(apiSecretBytes))
+            var uriBytes = _encoding.GetBytes(completeUri);
+            using (var hmac = new HMACSHA512(_apiSecretBytes))
             {
                 var hash = hmac.ComputeHash(uriBytes);
-                var hashText = byteToString(hash);
+                var hashText = ByteToString(hash);
                 return (completeUri, hashText);
             }
         }
 
-        protected HttpRequestMessage createRequest(HttpMethod httpMethod, string uri, bool includeAuthentication = true) => createRequest(httpMethod, uri, new Dictionary<string, string>(), includeAuthentication);
-        protected HttpRequestMessage createRequest(HttpMethod httpMethod, string uri, IDictionary<string, string> parameters, bool includeAuthentication)
+        protected HttpRequestMessage CreateRequest(HttpMethod httpMethod, string uri, bool includeAuthentication = true) => CreateRequest(httpMethod, uri, new Dictionary<string, string>(), includeAuthentication);
+        protected HttpRequestMessage CreateRequest(HttpMethod httpMethod, string uri, IDictionary<string, string> parameters, bool includeAuthentication)
         {
             if (includeAuthentication)
             {
-                (var completeUri, var hash) = createRequestAuthentication(uri, parameters);
+                (var completeUri, var hash) = CreateRequestAuthentication(uri, parameters);
                 var request = new HttpRequestMessage(httpMethod, completeUri);
                 request.Headers.Add(SignHeaderName, hash);
                 return request;
             }
             else
             {
-                var parameterString = convertParameterListToString(parameters);
+                var parameterString = ConvertParameterListToString(parameters);
                 var completeUri = uri + "?" + parameterString;
                 var request = new HttpRequestMessage(httpMethod, completeUri);
                 return request;
             }
         }
 
-        protected async Task<JToken> request(HttpMethod httpMethod, string uri, bool includeAuthentication = true) => await request(httpMethod, uri, new Dictionary<string, string>(), includeAuthentication);
-        protected async Task<JToken> request(HttpMethod httpMethod, string uri, IDictionary<string, string> parameters, bool includeAuthentication = true)
+        protected async Task<JToken> Request(HttpMethod httpMethod, string uri, bool includeAuthentication = true) => await Request(httpMethod, uri, new Dictionary<string, string>(), includeAuthentication);
+        protected async Task<JToken> Request(HttpMethod httpMethod, string uri, IDictionary<string, string> parameters, bool includeAuthentication = true)
         {
-            var request = createRequest(HttpMethod.Get, uri, parameters, includeAuthentication);
+            var request = CreateRequest(HttpMethod.Get, uri, parameters, includeAuthentication);
             HttpResponseMessage response = null;
             while (response == null)
             {
                 try
                 {
-                    response = await httpClient.SendAsync(request);
+                    response = await _httpClient.SendAsync(request);
                 }
                 catch (Exception)
                 {
@@ -128,7 +128,7 @@ namespace BittrexSharp
         public virtual async Task<IEnumerable<Market>> GetMarkets()
         {
             var uri = BaseUrl + "public/getmarkets";
-            var jsonResponse = await request(HttpMethod.Get, uri, false);
+            var jsonResponse = await Request(HttpMethod.Get, uri, false);
             var markets = jsonResponse.ToObject<IEnumerable<Market>>();
             return markets;
         }
@@ -140,7 +140,7 @@ namespace BittrexSharp
         public virtual async Task<IEnumerable<SupportedCurrency>> GetSupportedCurrencies()
         {
             var uri = BaseUrl + "public/getcurrencies";
-            var jsonResponse = await request(HttpMethod.Get, uri, false);
+            var jsonResponse = await Request(HttpMethod.Get, uri, false);
             var supportedCurrencies = jsonResponse.ToObject<IEnumerable<SupportedCurrency>>();
             return supportedCurrencies;
         }
@@ -157,7 +157,7 @@ namespace BittrexSharp
             {
                 { "market", marketName }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters, false);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters, false);
             var ticker = jsonResponse.ToObject<Ticker>();
             if (ticker == null) return null;
             ticker.MarketName = marketName;
@@ -171,7 +171,7 @@ namespace BittrexSharp
         public virtual async Task<IEnumerable<MarketSummary>> GetMarketSummaries()
         {
             var uri = BaseUrl + "public/getmarketsummaries";
-            var jsonResponse = await request(HttpMethod.Get, uri, false);
+            var jsonResponse = await Request(HttpMethod.Get, uri, false);
             var marketSummaries = jsonResponse.ToObject<IEnumerable<MarketSummary>>();
             return marketSummaries;
         }
@@ -188,7 +188,7 @@ namespace BittrexSharp
             {
                 { "market", marketName }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters, false);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters, false);
             var marketSummary = jsonResponse.ToObject<MarketSummary>();
             return marketSummary;
         }
@@ -209,7 +209,7 @@ namespace BittrexSharp
                 { "type", orderType },
                 { "depth", depth.ToString() }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters, false);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters, false);
             var orderBook = new OrderBook();
 
             if (orderType == OrderType.Both)
@@ -235,7 +235,7 @@ namespace BittrexSharp
             {
                 { "market", marketName }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters, false);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters, false);
             var orders = jsonResponse.ToObject<IEnumerable<Trade>>();
             return orders;
         }
@@ -258,7 +258,7 @@ namespace BittrexSharp
                 { "quantity", quantity.ToString() },
                 { "rate", rate.ToString() }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var acceptedOrder = jsonResponse.ToObject<AcceptedOrder>();
             return acceptedOrder;
         }
@@ -279,7 +279,7 @@ namespace BittrexSharp
                 { "quantity", quantity.ToString() },
                 { "rate", rate.ToString() }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var acceptedOrder = jsonResponse.ToObject<AcceptedOrder>();
             return acceptedOrder;
         }
@@ -296,7 +296,7 @@ namespace BittrexSharp
             {
                 { "uuid", orderId }
             };
-            await request(HttpMethod.Get, uri, parameters);
+            await Request(HttpMethod.Get, uri, parameters);
         }
 
         /// <summary>
@@ -310,7 +310,7 @@ namespace BittrexSharp
             var parameters = new Dictionary<string, string>();
             if (marketName != null) parameters.Add("market", marketName);
 
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var openOrders = jsonResponse.ToObject<IEnumerable<OpenOrder>>();
             return openOrders;
         }
@@ -324,7 +324,7 @@ namespace BittrexSharp
         public virtual async Task<IEnumerable<CurrencyBalance>> GetBalances()
         {
             var uri = BaseUrl + "account/getbalances";
-            var jsonResponse = await request(HttpMethod.Get, uri);
+            var jsonResponse = await Request(HttpMethod.Get, uri);
             var balances = jsonResponse.ToObject<IEnumerable<CurrencyBalance>>();
             return balances;
         }
@@ -341,7 +341,7 @@ namespace BittrexSharp
             {
                 { "currency", currency }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var balance = jsonResponse.ToObject<CurrencyBalance>();
             return balance;
         }
@@ -358,7 +358,7 @@ namespace BittrexSharp
             {
                 { "currency", currency }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var depositAddress = jsonResponse.ToObject<DepositAddress>();
             return depositAddress;
         }
@@ -381,7 +381,7 @@ namespace BittrexSharp
                 { "address", address },
                 { "paymentid", paymentId }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var acceptedWithdrawal = jsonResponse.ToObject<AcceptedWithdrawal>();
             return acceptedWithdrawal;
         }
@@ -398,7 +398,7 @@ namespace BittrexSharp
             {
                 { "uuid", orderId }
             };
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var order = jsonResponse.ToObject<Order>();
             return order;
         }
@@ -414,7 +414,7 @@ namespace BittrexSharp
             var parameters = new Dictionary<string, string>();
             if (marketName != null) parameters.Add("market", marketName);
 
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var orderHistory = jsonResponse.ToObject<IEnumerable<HistoricOrder>>();
             return orderHistory;
         }
@@ -430,7 +430,7 @@ namespace BittrexSharp
             var parameters = new Dictionary<string, string>();
             if (currency != null) parameters.Add("currency", currency);
 
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var withdrawalHistory = jsonResponse.ToObject<IEnumerable<HistoricWithdrawal>>();
             return withdrawalHistory;
         }
@@ -446,7 +446,7 @@ namespace BittrexSharp
             var parameters = new Dictionary<string, string>();
             if (currency != null) parameters.Add("currency", currency);
 
-            var jsonResponse = await request(HttpMethod.Get, uri, parameters);
+            var jsonResponse = await Request(HttpMethod.Get, uri, parameters);
             var depositHistory = jsonResponse.ToObject<IEnumerable<HistoricDeposit>>();
             return depositHistory;
         }
