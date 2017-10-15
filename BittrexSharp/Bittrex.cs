@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace BittrexSharp
 {
-    public class Bittrex
+    public class Bittrex : IBittrex
     {
         public const string Version = "v1.1";
         public const string BaseUrl = "https://bittrex.com/api/" + Version + "/";
@@ -37,7 +37,7 @@ namespace BittrexSharp
         {
             this._apiKey = apiKey;
             this._apiSecret = apiSecret;
-            this._apiSecretBytes = _encoding.GetBytes(apiSecret);
+            if (apiSecret != null) this._apiSecretBytes = _encoding.GetBytes(apiSecret);
             this._httpClient = new HttpClient();
         }
 
